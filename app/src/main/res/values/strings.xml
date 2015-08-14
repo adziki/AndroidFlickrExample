@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Flickr Info</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="action_login">Login</string>
+    <string name="action_logout">Log Out</string>
+    <string name="title_activity_authentication">Login</string>
+</resources>
