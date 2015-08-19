@@ -1,15 +1,31 @@
 package com.meyouhealth.learning.flickrinfo;
 
 import android.content.Context;
+import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.codepath.oauth.OAuthBaseClient;
 import com.codepath.oauth.OAuthLoginActionBarActivity;
+import com.google.gson.Gson;
+import com.meyouhealth.learning.flickrinfo.com.FlickrService;
 import com.meyouhealth.learning.flickrinfo.com.RestClient;
+import com.meyouhealth.learning.flickrinfo.model.ContactsResponse;
 import com.meyouhealth.learning.flickrinfo.util.AuthenticationUtil;
+import com.meyouhealth.learning.flickrinfo.util.EncryptUtil;
+import com.meyouhealth.learning.flickrinfo.util.LenientGsonConverter;
+import com.meyouhealth.learning.flickrinfo.util.Secrets;
+
+import org.scribe.extractors.HeaderExtractorImpl;
+import org.scribe.model.OAuthRequest;
+import org.scribe.model.Verb;
+
+import retrofit.RestAdapter;
+import retrofit.converter.GsonConverter;
 
 public class MainActivity extends OAuthLoginActionBarActivity<RestClient> {
 
@@ -72,6 +88,17 @@ public class MainActivity extends OAuthLoginActionBarActivity<RestClient> {
         //save token for later
         AuthenticationUtil.setAuthToken(token);
         this.invalidateOptionsMenu();
+        getClient().authorize(Uri.parse("https://api.flickr.com/services/rest/?method=flickr.contacts.getList"), new OAuthBaseClient.OAuthAccessHandler() {
+            @Override
+            public void onLoginSuccess() {
+
+            }
+
+            @Override
+            public void onLoginFailure(Exception e) {
+
+            }
+        });//.fetchAccessToken(getClient().checkAccessToken(), Uri.parse(""));
         mHeader.setText("You're logged in");
         //TODO then load this user's connections
         Thread thread = new Thread(new Runnable() {
@@ -91,6 +118,41 @@ public class MainActivity extends OAuthLoginActionBarActivity<RestClient> {
     }
 
     private void fetchConnections() {
-        
+        RestAdapter restAdapter = new RestAdapter.Builder()
+                .setEndpoint("https://api.flickr.com/services/rest")
+                .setConverter(new LenientGsonConverter(new Gson()))
+                .build();
+
+        String authToken = getClient().checkAccessToken().getToken();
+        String signature = Secrets.FLICKR_APPLICATION_KEY+"api_key"+Secrets.FLICKR_APPLICATION_KEY+"formatjsonauth_token" + authToken;
+
+        HeaderExtractorImpl authorization = new HeaderExtractorImpl();
+        OAuthRequest request = new OAuthRequest(Verb.GET, "https://api.flickr.com/services/rest");
+        request.addOAuthParameter("oauth_consumer_key","697513971bb18fc09eb60e905f3ced89");
+        request.addOAuthParameter("oauth_signature_method", "HMAC-SHA1");
+        request.addOAuthParameter("oauth_timestamp","1439999912");
+        request.addOAuthParameter("oauth_nonce","466635617");
+        request.addOAuthParameter("oauth_version","1.0");
+        request.addOAuthParameter("oauth_token","72157657452140442-779ae91ac587b602");
+        request.addOAuthParameter("oauth_signature","msXcmw03WWb6pOy90qDQruClvsw%3D");
+        String authenticationString1 = authorization.extract(request);
+        int startLoc = authenticationString1.indexOf("oauth_signature");
+        if (startLoc > 0) {
+            int endLoc = authenticationString1.indexOf("\"", startLoc + 20);
+            if (endLoc > 0) {
+                String value = authenticationString1.substring(startLoc +17, endLoc);
+                String fixedValue = value.replace("%25", "%");
+                authenticationString1 = authenticationString1.replace(value, fixedValue);
+            }
+        }
+        String authenticationString = "OAuth oauth_consumer_key=\"697513971bb18fc09eb60e905f3ced89\",oauth_signature_method=\"HMAC-SHA1\",oauth_timestamp=\"1439999912\",oauth_nonce=\"466635617\",oauth_version=\"1.0\",oauth_token=\"72157657452140442-779ae91ac587b602\",oauth_signature=\"msXcmw03WWb6pOy90qDQruClvsw%3D\"";
+        FlickrService service = restAdapter.create(FlickrService.class);
+        ContactsResponse response =
+        //String response =
+                service.getContactList(
+                        authenticationString1);
+        if (response == null) {
+            Log.d("test", "test");
+        }
     }
 }
